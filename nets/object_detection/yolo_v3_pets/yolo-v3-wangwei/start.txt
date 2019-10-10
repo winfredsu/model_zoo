@@ -1,0 +1,13 @@
+
+
+
+tensorboard ¨Clogdir=¡®train¡¯
+
+
+
+
+
+source activate python36
+
+
+CUDA_VISIBLE_DEVICES=1   python   convert_weight.py

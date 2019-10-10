@@ -13,8 +13,9 @@ wget http://www.robots.ox.ac.uk/~vgg/data/pets/data/annotations.tar.gz
 tar -xvf images.tar.gz
 tar -xvf annotations.tar.gz
 ```
+3 files in the uncompressed image folder are not in JPG format. You should remove them manually. After this, we'll get 7390 JPEG images. 
 
-# Convert the dataset to desirable formats
+# Data Conversion Utils
 ## Create TFrecords for TensorFlow object detection API
 Before creating the tfrecords, we should have TensorFlow object detection API already installed. 
 ``` bash
