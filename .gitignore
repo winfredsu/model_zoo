@@ -1,2 +1,4 @@
 /datasets/*/raw_data
 /datasets/*/tfrecord
+/nets/*/*/__pycache__
+/nets/*/*/train
