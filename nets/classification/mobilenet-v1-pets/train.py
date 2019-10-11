@@ -10,6 +10,7 @@ from config import *
 # from tensorflow.contrib import quantize
 
 tf.app.flags.DEFINE_string('train_dir', './train', 'training directory')
+tf.app.flags.DEFINE_string('val_dir', './val', 'validation directory')
 tf.app.flags.DEFINE_bool('quantize', False, 'enable quantization')
 tf.app.flags.DEFINE_string('start_ckpt', '', 'ckpt from which to continue training (filename only)')
 tf.app.flags.DEFINE_bool('is_first_finetuning', False, 'set True if finetuning from a float model for the first time. This flag resets global step.')
@@ -37,9 +38,11 @@ def train_val_loop(ds_train=None, ds_val=None):
     else:
         LR_START = FLAGS.lr_start
     
-    ## create train dir
+    ## create train & val dir
     if os.path.exists(FLAGS.train_dir) == False:
         os.mkdir(FLAGS.train_dir)
+    if os.path.exists(FLAGS.val_dir) == False:
+        os.mkdir(FLAGS.val_dir)
 
     ## start a new session
     sess = tf.InteractiveSession()
@@ -79,17 +82,18 @@ def train_val_loop(ds_train=None, ds_val=None):
        train_op = tf.train.GradientDescentOptimizer(learning_rate).minimize(loss_op, global_step)
     
     ## create summary and merge
-    tf.summary.scalar('loss', loss_op)
-    tf.summary.scalar('accuracy', acc_op)
-    tf.summary.scalar('learning_rate', learning_rate)
-    merged_summaries = tf.summary.merge_all()
-    
+    tf.summary.scalar('loss', loss_op, collections=['train', 'val'])
+    tf.summary.scalar('accuracy', acc_op, collections=['train', 'val'])
+    tf.summary.scalar('learning_rate', learning_rate, collections=['train', 'val'])
+    train_merged_summaries = tf.summary.merge_all('train')
+    val_merged_summaries = tf.summary.merge_all('val')
+
     ## saver
     saver = tf.train.Saver(tf.global_variables())
     
     ## writer
     train_writer = tf.summary.FileWriter(FLAGS.train_dir, sess.graph)
-    val_writer   = tf.summary.FileWriter(FLAGS.train_dir, sess.graph)
+    val_writer   = tf.summary.FileWriter(FLAGS.val_dir, sess.graph)
 
     ## initialize variables
     tf.global_variables_initializer().run()
@@ -124,7 +128,7 @@ def train_val_loop(ds_train=None, ds_val=None):
             [
                 train_op,
                 loss_op,
-                merged_summaries
+                train_merged_summaries
             ],
             feed_dict={
                 images: images_batch,
@@ -142,7 +146,7 @@ def train_val_loop(ds_train=None, ds_val=None):
                 val_acc, val_summary = sess.run(
                     [
                         acc_op,
-                        merged_summaries
+                        val_merged_summaries
                     ],
                     feed_dict={
                         images: images_batch,
