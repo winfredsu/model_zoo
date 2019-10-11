@@ -1,5 +1,6 @@
 # dataset related params
 DATASET_NAME = 'cifar-10'
+DATASET_DIR = '../../datasets/cifar-10/raw_data'
 DATASET_SIZE = 30000
 DATASET_SPLIT = [0.7, 0.15, 0.15] # TRAIN, VAL, TEST 
 NUM_CLASSES  = 10

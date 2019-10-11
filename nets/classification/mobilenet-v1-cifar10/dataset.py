@@ -27,10 +27,10 @@ def get_dataset():
     images = np.zeros((0,32,32,3))
     labels = np.zeros((0,))
     for i in range(1,6):
-        images_batch, labels_batch = bin2array('./dataset/data_batch_'+str(i))
+        images_batch, labels_batch = bin2array(os.path.join(DATASET_DIR, ('data_batch_'+str(i))))
         images = np.concatenate((images, images_batch), axis=0)
         labels = np.concatenate((labels, labels_batch), axis=0) 
-    images_batch, labels_batch = bin2array('./dataset/test_batch')
+    images_batch, labels_batch = bin2array(os.path.join(DATASET_DIR, ('test_batch')))
     images = np.concatenate((images, images_batch), axis=0)
     labels = np.concatenate((labels, labels_batch), axis=0) 
     
