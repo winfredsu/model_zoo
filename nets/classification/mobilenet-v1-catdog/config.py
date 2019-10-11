@@ -1,0 +1,20 @@
+# dataset configs
+DATASET_NAME = 'Oxford-IIIT'
+IMG_PATH = '../../../datasets/Oxford-IIIT/raw_data/images'
+DATASET_SIZE = 7390
+NUM_CLASSES  = 2
+DATASET_SPLIT = [0.7, 0.15, 0.15] # TRAIN, VAL, TEST 
+TRAIN_SIZE = int(DATASET_SIZE*DATASET_SPLIT[0])
+VAL_SIZE   = int(DATASET_SIZE*DATASET_SPLIT[1])
+TEST_SIZE  = int(DATASET_SIZE*DATASET_SPLIT[2])
+TRAIN_SPLIT = TRAIN_SIZE
+VAL_SPLIT   = TRAIN_SIZE+VAL_SIZE
+TEST_SPLIT  = DATASET_SIZE
+
+# training params (tf.data requires to speicify the batch size)
+BATCH_SIZE = 32
+
+# model params
+IMG_SHAPE = [128, 128, 3]
+DEPTH_MULTIPLIER = 0.25
+DROPOUT_PROB = 0.2

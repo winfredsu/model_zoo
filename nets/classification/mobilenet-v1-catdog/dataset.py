@@ -4,25 +4,7 @@ import os
 import random
 from config import *
 
-
 AUTOTUNE = tf.data.experimental.AUTOTUNE
-
-
-def load_imgs(img_path):
-    """
-    args:
-        img_path: directory containing all images
-    return:
-        splitted image paths
-    """
-    img_paths = os.listdir(img_path)
-    img_paths.sort() # guarantee 'load_labels' gets the same paths
-    img_paths = img_paths[:DATASET_SIZE]
-    for i in range(len(img_paths)):
-        img_paths[i] = os.path.join(img_path,img_paths[i])
-    return img_paths
-    # return img_paths[:TRAIN_SPLIT], img_paths[TRAIN_SPLIT:VAL_SPLIT], img_paths[VAL_SPLIT:]
-
 
 def preprocess(img_path, label):
     img = tf.io.read_file(img_path)
@@ -44,15 +26,16 @@ def get_dataset():
     img_paths.sort()
     img_paths = img_paths[:DATASET_SIZE]
     # 2. get all label names
-    label_names = []
-    for path in img_paths:
-        cur_name = path.split('_')[0]
-        if cur_name not in label_names:
-            label_names.append(cur_name)
+    label_names = ['cat', 'dog']
     # 3. get labels
     labels = []
-    for i in range(len(img_paths)):
-        labels.append(label_names.index(img_paths[i].split('_')[0]))
+    for path in img_paths:
+        if path[0].islower():
+            labels.append(1)
+        elif path[0].isupper():
+            labels.append(0)
+        else:
+            raise ValueError('not cat or dog')
     labels = np.array(labels)
     # 4. get full image paths
     for i in range(len(img_paths)):
@@ -63,7 +46,6 @@ def get_dataset():
     random.shuffle(img_paths)
     random.seed(randnum)
     random.shuffle(labels)
-    print(labels)
     # 6. create dataset
     img_paths_train, img_paths_val, img_paths_test = img_paths[:TRAIN_SPLIT], img_paths[TRAIN_SPLIT:VAL_SPLIT], img_paths[VAL_SPLIT:]
     labels_train, labels_val, labels_test = labels[:TRAIN_SPLIT], labels[TRAIN_SPLIT:VAL_SPLIT], labels[VAL_SPLIT:]
