@@ -41,7 +41,7 @@ def mobilenet_v1(tensor_in, num_classes, depth_multiplier, dropout_prob, is_trai
         'is_training': is_training,
         'center': True, 
         'scale': True, 
-        'decay': 0.9997, 
+        'decay': 0.997, 
         'epsilon': 0.001, 
         'updates_collections': tf.GraphKeys.UPDATE_OPS
     }
@@ -96,7 +96,8 @@ def mobilenet_v1(tensor_in, num_classes, depth_multiplier, dropout_prob, is_trai
                                 num_outputs=num_classes, 
                                 kernel_size=[1,1], 
                                 activation_fn=None,
-                                normalizer_fn=None, 
+                                normalizer_fn=normalizer_fn,
+                                normalizer_params=normalizer_params,
                                 scope='Dense')
         logits = tf.squeeze(logits, axis=[1,2], name='Squeeze')
         return logits
