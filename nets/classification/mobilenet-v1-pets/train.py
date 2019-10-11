@@ -30,7 +30,7 @@ def train_val_loop(ds_train=None, ds_val=None):
         ds_val: dataset for validation, should be a batched tf.Dataset
     """
     
-    LR_DECAY_FACTOR = 0.94
+    LR_DECAY_FACTOR = 0.999
     LR_DECAY_STEPS = int(TRAIN_SIZE/BATCH_SIZE*1.5)
     if FLAGS.quantize:
         LR_START = FLAGS.lr_finetune
