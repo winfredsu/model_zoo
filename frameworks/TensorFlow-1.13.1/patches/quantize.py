@@ -29,10 +29,11 @@ from tensorflow.python.ops import math_ops
 from tensorflow.python.platform import tf_logging as logging
 
 # Quantizable operation types that are supported by the quantization rewrite.
-# modified by sf
 # add Rsqrt to support bn fold subgraph
 _QUANTIZABLE_TYPES = {'Conv2D', 'MatMul', 'DepthwiseConv2dNative'}
-# end modified by sf
+
+# modified by sufang
+_EXTRA_QUANTIZABLE_TYPES = {'AvgPool'}
 
 # Activations that are supported by the quantization rewrite.
 _ACTIVATION_TYPES = {'Relu', 'Relu6'}
@@ -41,6 +42,7 @@ _ACTIVATION_TYPES = {'Relu', 'Relu6'}
 def Quantize(graph,
              is_training,
              weight_bits=8,
+             bias_bits=8,
              activation_bits=8,
              symmetric=True,
              ema_decay=0.999,
@@ -78,24 +80,43 @@ def Quantize(graph,
 
   input_to_ops_map = input_to_ops.InputToOps(graph)
 
-  layer_matches, bn_fold_matches = _FindLayersToQuantize(graph)
+  layer_matches, bn_fold_matches, extra_op_matches = _FindLayersToQuantize(graph)
 
+  ## insert fake_quant op for extra ops
+  for extra_op_match in extra_op_matches:
+    context = _GetContextFromOp(extra_op_match.layer_op)
+    _InsertQuantOp(
+      context,
+      'extra_op_quant',
+      extra_op_match.layer_op,
+      input_to_ops_map.ConsumerOperations(extra_op_match.layer_op),
+      is_training,
+      moving_avg=True,
+      ema_decay=ema_decay,
+      quant_delay=quant_delay,
+      narrow_range=False,
+      vars_collection=vars_collection,
+      bits=activation_bits,
+      consumer_scope=scope)
+
+  ## insert fake_quant op for biases
   for bn_fold_match in bn_fold_matches:
     context = _GetContextFromOp(bn_fold_match.bias_op)
     _InsertQuantOp(
-        context,
-        'bias_quant',
-        bn_fold_match.bias_op, 
-        input_to_ops_map.ConsumerOperations(bn_fold_match.bias_op),
-        is_training,
-        moving_avg=False,
-        ema_decay=ema_decay,
-        quant_delay=quant_delay,
-        narrow_range=False,
-        vars_collection=vars_collection,
-        bits=8,
-        consumer_scope=scope)
+      context,
+      'bias_quant',
+      bn_fold_match.bias_op, 
+      input_to_ops_map.ConsumerOperations(bn_fold_match.bias_op),
+      is_training,
+      moving_avg=False,
+      ema_decay=ema_decay,
+      quant_delay=quant_delay,
+      narrow_range=False,
+      vars_collection=vars_collection,
+      bits=bias_bits,
+      consumer_scope=scope)
 
+  ## insert fake_quant op for primary layers
   for layer_match in layer_matches:
 
     # Quantize the weights.
@@ -118,8 +139,7 @@ def Quantize(graph,
         vars_collection=vars_collection,
         bits=weight_bits,
         consumer_scope=scope,
-	#per_channel=True)
-	per_channel=False)
+        per_channel=False)
 
     # Quantize the activations.
     consumer_ops = input_to_ops_map.ConsumerOperations(
@@ -247,11 +267,18 @@ def _FindLayersToQuantize(graph):
     If activation is found, FakeQuant is added afterwards.
     If post_activation_bypass is found, FakeQuant is added afterwards.
 
+  ####################################################################
+  In addition, we add the following match patterns for hw-friendly 
+  quant-aware-training. 
+    - add fake_quant op after the folded biases in conv layers
+    - add fake_quant op after AvgPool since it changes the data type
+  ####################################################################
+
   Args:
     graph: Graph to perform match on.
 
   Returns:
-    list of _LayerMatches.
+    tuple of lists of (_LayerMatches, bn_fold_matches, extra_op_matches).
   """
   input_pattern = graph_matcher.OpTypePattern('*')
   weight_var_pattern = graph_matcher.OpTypePattern('Variable|VariableV2')
@@ -362,24 +389,33 @@ def _FindLayersToQuantize(graph):
   post_activation_bypass_pattern = graph_matcher.OpTypePattern(
       'Add', inputs=['*', activation_pattern], ordered_inputs=False)
 
-  # modified by sf
+  # modified by sufang
   bn_fold_pattern = graph_matcher.OpTypePattern(
     'Sub', inputs=[graph_matcher.OpTypePattern('Mul'), 
     graph_matcher.OpTypePattern('Identity')], ordered_inputs=False)
-  # end modified by sf
+
+  extra_op_pattern = graph_matcher.OpTypePattern(
+    '|'.join(_EXTRA_QUANTIZABLE_TYPES)
+  )
+  # end modified by sufang
 
   # The order of the following matching blocks is very important. Since matches
   # aren't guaranteed to be disjoint, we structure matches from largest to
   # smallest to guarantee that the largest match always wins. Additionally, we
   # ensure that we don't match layers multiple times.
 
+  # modified by sufang
   layer_matches = []
   bn_fold_matches = []
+  extra_op_matches = []
 
   # We use matched_layer_set to ensure that layers aren't matched multiple
   # times.
   matched_layer_set = set()
   matched_bn_fold_set = set()
+  matched_extra_op_set = set()
+  # end modified by sufang
+
 
   # First, we match layers that have a post activation bypass. We do this first
   # to ensure we don't match only the first part of this layer, missing the
@@ -459,12 +495,11 @@ def _FindLayersToQuantize(graph):
       layer_matches.append(
           _LayerMatch(layer_op, weight_tensor, None, activation_op, None, None, None))
 
-  # modified by sf
+  # modified by sufang
   # BN FOLD BIAS SUBGRAPH
   bn_fold_matcher = graph_matcher.GraphMatcher(bn_fold_pattern)
   for match_result in bn_fold_matcher.match_graph(graph):
     bias_op = match_result.get_op(bn_fold_pattern)
-    # print(bias_op)
 
     if bias_op not in matched_bn_fold_set:
       matched_bn_fold_set.add(bias_op)
@@ -472,10 +507,19 @@ def _FindLayersToQuantize(graph):
           _LayerMatch(None, None, bias_op, None, None, None,
                       None))
   
-  # end modified by sf
+  # EXTRA OP MATCHES
+  extra_op_matcher = graph_matcher.GraphMatcher(extra_op_pattern)
+  for match_result in extra_op_matcher.match_graph(graph):
+    extra_op = match_result.get_op(extra_op_pattern)
 
-  return layer_matches, bn_fold_matches
+    if extra_op not in matched_extra_op_set:
+      matched_extra_op_set.add(extra_op)
+      extra_op_matches.append(
+        _LayerMatch(extra_op, None, None, None, None, None, None)
+      )
+  # end modified by sufang
 
+  return layer_matches, bn_fold_matches, extra_op_matches
 
 class _LayerMatch(object):
   """Contains all information related to a matched Layer."""

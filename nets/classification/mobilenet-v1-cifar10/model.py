@@ -41,7 +41,7 @@ def mobilenet_v1(tensor_in, num_classes, depth_multiplier, dropout_prob, is_trai
         'is_training': is_training,
         'center': True, 
         'scale': True, 
-        'decay': 0.97, 
+        'decay': 0.98, 
         'epsilon': 0.001, 
         'updates_collections': tf.GraphKeys.UPDATE_OPS
     }
@@ -92,6 +92,7 @@ def mobilenet_v1(tensor_in, num_classes, depth_multiplier, dropout_prob, is_trai
         convout_shape = net.get_shape().as_list()
         net = tf.contrib.slim.avg_pool2d(net, [convout_shape[1],convout_shape[2]], padding='VALID', scope='AvgPool')
         net = tf.contrib.slim.dropout(net, keep_prob=1-dropout_prob, is_training=is_training, scope='Dropout')
+        # the final dense layer also uses slim.batch_norm as normalizer fn
         logits = tf.contrib.slim.conv2d(net, 
                                 num_outputs=num_classes, 
                                 kernel_size=[1,1], 
