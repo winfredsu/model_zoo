@@ -3,4 +3,4 @@
 /nets/*/*/__pycache__
 /nets/*/*/train
 /nets/*/*/val
-
+/nets/*/*/*.pb
