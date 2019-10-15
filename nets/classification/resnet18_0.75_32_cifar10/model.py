@@ -442,7 +442,7 @@ def my_resnet(inputs, num_classes, depth_multiplier, is_training):
   """
   The model def used by train.py
   """
-  with slim.arg_scope(resnet_arg_scope(batch_norm_decay=0.97, activation_fn=tf.nn.relu6)):
+  with slim.arg_scope(resnet_arg_scope(batch_norm_decay=0.99, activation_fn=tf.nn.relu6)):
       net, end_points = resnet_v1_18(inputs=inputs, num_classes=num_classes, include_root_block=True, 
         is_training=is_training, depth_multiplier=depth_multiplier)
   return net
