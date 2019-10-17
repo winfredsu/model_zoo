@@ -1,6 +1,10 @@
 # Model Optimization in TensorFlow
 This directory contains necessary patches to perform model optimization in TensorFlow 1.x. Before training a new model, you should have TensorFlow 1.13.1 installed. 
 
+## Installation
+1. Install tensorflow(-gpu)-1.13.1
+2. Clone the 'models' from https://github.com/winfredsu/models and checkout branch 1.13.0
+
 ## Optimization Techniques
 Currently, only power-of-2 quant-aware-training is supported. 
 ### Power-of-2 Quant-Aware-Training

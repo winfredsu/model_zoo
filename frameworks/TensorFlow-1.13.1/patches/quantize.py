@@ -33,7 +33,7 @@ from tensorflow.python.platform import tf_logging as logging
 _QUANTIZABLE_TYPES = {'Conv2D', 'MatMul', 'DepthwiseConv2dNative'}
 
 # modified by sufang
-_EXTRA_QUANTIZABLE_TYPES = {'AvgPool'}
+_EXTRA_QUANTIZABLE_TYPES = {'AvgPool', 'MaxPool'}
 
 # Activations that are supported by the quantization rewrite.
 _ACTIVATION_TYPES = {'Relu', 'Relu6'}
@@ -272,6 +272,7 @@ def _FindLayersToQuantize(graph):
   quant-aware-training. 
     - add fake_quant op after the folded biases in conv layers
     - add fake_quant op after AvgPool since it changes the data type
+    - add fake_quant op after MaxPool to ease the parsing ...
   ####################################################################
 
   Args:
