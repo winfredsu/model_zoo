@@ -33,7 +33,7 @@ from tensorflow.python.platform import tf_logging as logging
 _QUANTIZABLE_TYPES = {'Conv2D', 'MatMul', 'DepthwiseConv2dNative'}
 
 # modified by sufang
-_EXTRA_QUANTIZABLE_TYPES = {'AvgPool', 'MaxPool'}
+_EXTRA_QUANTIZABLE_TYPES = {'AvgPool', 'MaxPool', 'ResizeBilinear'}
 
 # Activations that are supported by the quantization rewrite.
 _ACTIVATION_TYPES = {'Relu', 'Relu6'}
@@ -80,7 +80,7 @@ def Quantize(graph,
 
   input_to_ops_map = input_to_ops.InputToOps(graph)
 
-  layer_matches, bn_fold_matches, extra_op_matches = _FindLayersToQuantize(graph)
+  layer_matches, bn_fold_matches, extra_op_matches, concat_matches = _FindLayersToQuantize(graph)
 
   ## insert fake_quant op for extra ops
   for extra_op_match in extra_op_matches:
@@ -99,6 +99,22 @@ def Quantize(graph,
       bits=activation_bits,
       consumer_scope=scope)
 
+  ## insert fake_quant op for concat ops
+  for concat_match in concat_matches:
+    context = _GetContextFromOp(concat_match.layer_op)
+    _InsertQuantOp(
+      context,
+      'concat_quant',
+      concat_match.layer_op,
+      input_to_ops_map.ConsumerOperations(concat_match.layer_op),
+      is_training,
+      moving_avg=True,
+      ema_decay=ema_decay,
+      quant_delay=quant_delay,
+      narrow_range=False,
+      vars_collection=vars_collection,
+      bits=activation_bits,
+      consumer_scope=scope)
   ## insert fake_quant op for biases
   for bn_fold_match in bn_fold_matches:
     context = _GetContextFromOp(bn_fold_match.bias_op)
@@ -398,6 +414,9 @@ def _FindLayersToQuantize(graph):
   extra_op_pattern = graph_matcher.OpTypePattern(
     '|'.join(_EXTRA_QUANTIZABLE_TYPES)
   )
+  concat_pattern = graph_matcher.OpTypePattern(
+    'ConcatV2', inputs=[graph_matcher.OpTypePattern('ResizeBilinear'), '*', '*'],
+    ordered_inputs=False)
   # end modified by sufang
 
   # The order of the following matching blocks is very important. Since matches
@@ -409,12 +428,14 @@ def _FindLayersToQuantize(graph):
   layer_matches = []
   bn_fold_matches = []
   extra_op_matches = []
+  concat_matches = []
 
   # We use matched_layer_set to ensure that layers aren't matched multiple
   # times.
   matched_layer_set = set()
   matched_bn_fold_set = set()
   matched_extra_op_set = set()
+  matched_concat_set = set()
   # end modified by sufang
 
 
@@ -518,9 +539,22 @@ def _FindLayersToQuantize(graph):
       extra_op_matches.append(
         _LayerMatch(extra_op, None, None, None, None, None, None)
       )
+  # CONCAT MATCHES
+  concat_matcher = graph_matcher.GraphMatcher(concat_pattern)
+  for match_result in concat_matcher.match_graph(graph):
+    print('*'*20)
+    concat_op = match_result.get_op(concat_pattern)
+    print(concat_op.name)
+    print(len(concat_op.inputs))
+
+    if concat_op not in matched_concat_set:
+      matched_concat_set.add(concat_op)
+      concat_matches.append(
+        _LayerMatch(concat_op, None, None, None, None, None, None)
+      )
   # end modified by sufang
 
-  return layer_matches, bn_fold_matches, extra_op_matches
+  return layer_matches, bn_fold_matches, extra_op_matches, concat_matches
 
 class _LayerMatch(object):
   """Contains all information related to a matched Layer."""

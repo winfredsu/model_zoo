@@ -1,0 +1,13 @@
+CUDA_VISIBLE_DEVICES=2 python ~/Projects/tensorflow_models/models/research/deeplab/eval.py \
+    --logtostderr \
+    --eval_split="val" \
+    --model_variant="mobilenet_v2" \
+    --depth_multiplier=0.5 \
+    --quantize_delay_step=0 \
+    --output_stride=16 \
+    --eval_crop_size="513,513" \
+    --dataset="pascal_voc_seg" \
+    --initialize_last_layer \
+    --checkpoint_dir="/home/sufang/Projects/model_zoo/nets/segmentation/deeplab/train" \
+    --eval_logdir="/home/sufang/Projects/model_zoo/nets/segmentation/deeplab/eval/" \
+    --dataset_dir="/home/sufang/Projects/model_zoo/datasets/PASCAL_VOC_2012/tfrecord"

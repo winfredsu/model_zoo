@@ -4,4 +4,7 @@
 /nets/*/*/train
 /nets/*/*/inference
 /nets/*/*/val
+/nets/*/*/eval
+/nets/*/*/ckpt
+/nets/*/*/vis
 /nets/*/*/*.pb
